@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>borinot_jump</name>
+  <version>0.0.0</version>
+  <description>This is a package for the jump experiment on Borinot using a ROS2 node</description>
+  <maintainer email="hduarte@iri.upc.edu">hduarte</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>px4_msgs</depend>
+  <depend>px4_ros_com</depend>
+  <depend>eagle_ros2_interfaces</depend>
+  <depend>eagle_ros2_tf</depend>
+  <depend>eagle_ros2_control</depend>
+  <depend>hidro_ros2_utils</depend>
+  <depend>std_srvs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

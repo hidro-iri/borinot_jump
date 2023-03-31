@@ -1,0 +1,70 @@
+vrpn_client_node:
+  ros__parameters:
+    server: 192.168.1.2
+    port: 3883
+    frame_id: "world_fur"
+    use_server_time: false
+    broadcast_tf: true
+    refresh_tracker_frequency: 0.2
+    update_frequency: 100.0
+
+eagle_ros/vision_pose_sender:
+  ros__parameters:
+    pose_from_tf: false
+    frame_id: "borinot_frd_ot"
+    tf_timer_period: 0.01
+
+odri/robot_interface:
+  ros__parameters:
+    robot_yaml_name: "flying_arm_2.yaml"
+    n_slaves: 1
+    # safe_configuration: [-1.0, 2.8]
+    safe_configuration:  [-1.0, 2.0] # rad
+
+    # safe_configuration: [0.0, 0.0]
+    safe_torque: 1.0
+    safe_kp: 0.5
+    safe_kd: 2.5
+    safe_current: 5.0
+
+borinot_flying_arm_2/platform_state_publisher:
+  ros__parameters:
+    urdf_filename: "borinot_flying_arm_2.urdf"
+    base_link_name: "borinot__base_link"
+    joint_name: ["flying_arm_2__j_bl_link1", "flying_arm_2__j_link1_link2"]
+    joint_index: [0, 1]
+    pub_state: true
+    pub_tf: false
+    pub_rate: 20
+
+borinot_flying_arm_2/jump_controller:
+  ros__parameters:
+    # ---- StatePubSub PARAMS ----
+    urdf_filename: "borinot_flying_arm_2.urdf"
+    base_link_name: "borinot__base_link"
+    joint_name: ["flying_arm_2__j_bl_link1", "flying_arm_2__j_link1_link2"]
+    joint_index: [0, 1]
+    pub_state: false
+    pub_tf: false
+
+    # ---- ControllerBase PARAMS ----
+    actuation_period: 2.0 # ms
+
+    # ---- JumpController PARAMS ----
+    write_px4_commands: true
+
+    # Propeller velocity
+    propeller_velocity_normalized: -0.75
+
+    # Torque commands
+    torque_commands: [0.5, -0.5] # N.m
+
+    # Arm state
+    arm_landing:  [-1.0, 2.0] # rad
+    # arm_landing:  [-1.0, 2.8] # rad
+    arm_take_off: [-0.1, 0.1] # rad
+
+    # Landing phase parameters
+    time_landing: 1500. # ms
+    arm_kp: [2.0, 2.0]
+    arm_kd: [1.0, 1.0]
