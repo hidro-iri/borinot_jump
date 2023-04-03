@@ -19,7 +19,7 @@ odri/robot_interface:
     robot_yaml_name: "flying_arm_2.yaml"
     n_slaves: 1
     # safe_configuration: [-1.0, 2.8]
-    safe_configuration:  [-1.0, 2.0] # rad
+    safe_configuration:  [-1.25, 2.5] # rad
 
     # safe_configuration: [0.0, 0.0]
     safe_torque: 1.0
@@ -57,14 +57,13 @@ borinot_flying_arm_2/jump_controller:
     propeller_velocity_normalized: -0.75
 
     # Torque commands
-    torque_commands: [0.5, -0.5] # N.m
+    torque_commands: [2.5, -2.5] # N.m
 
     # Arm state
-    arm_landing:  [-1.0, 2.0] # rad
-    # arm_landing:  [-1.0, 2.8] # rad
-    arm_take_off: [-0.1, 0.1] # rad
+    arm_landing:  [-1.25, 2.5] # rad
+    time_takeoff: 2000. # ms
+    arm_takeoff: [-0.1, 0.1] # rad
 
     # Landing phase parameters
-    time_landing: 1500. # ms
     arm_kp: [2.0, 2.0]
-    arm_kd: [1.0, 1.0]
+    arm_kd: [0.1, 0.1]

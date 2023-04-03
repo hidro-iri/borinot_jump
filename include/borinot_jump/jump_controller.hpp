@@ -44,6 +44,7 @@
 #include <px4_msgs/msg/vehicle_local_position.hpp>
 
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/float32_multi_array.hpp"
 
 #include <px4_ros_com/frame_transforms.h>
 
@@ -76,6 +77,7 @@ class JumpController : public StatePubSub, public ControllerAbstract
     virtual void callbackVehicleAttitude(const px4_msgs::msg::VehicleAttitude::SharedPtr msg) override;
     virtual void callbackVehicleAngularVelocity(const px4_msgs::msg::VehicleAngularVelocity::SharedPtr msg) override;
     virtual void callbackRobotState(const odri_ros2_msgs::msg::RobotState::SharedPtr msg) override;
+    void         callbackLandingPosition(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
     // Controller service callbacks
     void callbackEnablePropellers(const std_srvs::srv::SetBool::Request::SharedPtr request,
@@ -92,9 +94,14 @@ class JumpController : public StatePubSub, public ControllerAbstract
     virtual void computeControls() override;
 
   private:
+    // Subscribers
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr subs_landing_position_;
+
     // Services
     rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srvs_prop_;
     rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srvs_jump_;
+
+    rclcpp::CallbackGroup::SharedPtr cb_group_srv_;
 
     struct JumpParams
     {
@@ -110,13 +117,15 @@ class JumpController : public StatePubSub, public ControllerAbstract
 
         // Arm state
         std::vector<double> arm_landing;
-        std::vector<double> arm_take_off;
+        std::vector<double> arm_takeoff;
 
         // Landing phase parameters
-        std::chrono::duration<double, std::milli> time_landing;
+        std::chrono::duration<double, std::milli> time_takeoff;
         std::vector<double>                       arm_kp;
         std::vector<double>                       arm_kd;
     } jump_params_;
+
+    std::chrono::steady_clock::time_point time_takeoff_last_call_;
 
     bool is_propeller_enabled_{false};
     bool is_jumping_{false};

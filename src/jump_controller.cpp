@@ -41,6 +41,7 @@ JumpController::JumpController(const std::string &node_name)
     initializeParameters();
     initializeSubscribers();
     initializePublishers();
+    initializeServices();
     initializeTimers();
 
     RCLCPP_INFO_STREAM(get_logger(), "Jump Controller node loaded");
@@ -64,9 +65,9 @@ void JumpController::initializeParameters()
     declare_parameter<std::vector<double>>("torque_commands", {0, 0});
 
     declare_parameter<std::vector<double>>("arm_landing", {0, 0});
-    declare_parameter<std::vector<double>>("arm_take_off", {0, 0});
+    declare_parameter<std::vector<double>>("arm_takeoff", {0, 0});
 
-    declare_parameter<double>("time_landing", 0.0);
+    declare_parameter<double>("time_takeoff", 0.0);
     declare_parameter<std::vector<double>>("arm_kp", {0, 0});
     declare_parameter<std::vector<double>>("arm_kd", {0, 0});
 
@@ -74,16 +75,23 @@ void JumpController::initializeParameters()
     // Won't change during node existence and they'll be queried at mpc running time
     get_parameter("platform_name", jump_params_.platform_name);
     get_parameter("write_px4_commands", jump_params_.write_px4_commands);
-    jump_params_.time_landing = std::chrono::duration<double, std::milli>(get_parameter("time_landing").as_double());
+    jump_params_.time_takeoff = std::chrono::duration<double, std::milli>(get_parameter("time_takeoff").as_double());
     get_parameter("propeller_velocity_normalized", jump_params_.propeller_velocity_normalized);
     get_parameter("torque_commands", jump_params_.torque_commands);
     get_parameter("arm_kp", jump_params_.arm_kp);
     get_parameter("arm_kd", jump_params_.arm_kd);
     get_parameter("arm_landing", jump_params_.arm_landing);
-    get_parameter("arm_take_off", jump_params_.arm_take_off);
+    get_parameter("arm_takeoff", jump_params_.arm_takeoff);
 }
 
-void JumpController::initializeSubscribers() {}
+void JumpController::initializeSubscribers()
+{
+    rclcpp::SubscriptionOptions sub_opt_misc = rclcpp::SubscriptionOptions();
+
+    subs_landing_position_ = create_subscription<std_msgs::msg::Float32MultiArray>(
+        "landing_position", rclcpp::QoS(1),
+        std::bind(&JumpController::callbackLandingPosition, this, std::placeholders::_1), sub_opt_misc);
+}
 
 void JumpController::initializePublishers() {}
 
@@ -91,11 +99,15 @@ void JumpController::initializeTimers() {}
 
 void JumpController::initializeServices()
 {
-    srvs_prop_ =
-        create_service<std_srvs::srv::SetBool>("enable_propellers", std::bind(&JumpController::callbackEnablePropellers, this,
-                                std::placeholders::_1, std::placeholders::_2));
-    srvs_jump_ = create_service<std_srvs::srv::SetBool>("enable_jump", std::bind(&JumpController::callbackEnableJump, this,
-                                std::placeholders::_1, std::placeholders::_2));
+    cb_group_srv_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    srvs_prop_    = create_service<std_srvs::srv::SetBool>(
+        std::string(get_name()) + "/enable_propellers",
+        std::bind(&JumpController::callbackEnablePropellers, this, std::placeholders::_1, std::placeholders::_2),
+        rmw_qos_profile_services_default, cb_group_srv_);
+    srvs_jump_ = create_service<std_srvs::srv::SetBool>(
+        std::string(get_name()) + "/enable_jump",
+        std::bind(&JumpController::callbackEnableJump, this, std::placeholders::_1, std::placeholders::_2),
+        rmw_qos_profile_services_default, cb_group_srv_);
 }
 
 void JumpController::callbackVehicleLocalPosition(const px4_msgs::msg::VehicleLocalPosition::SharedPtr msg)
@@ -122,8 +134,16 @@ void JumpController::callbackRobotState(const odri_ros2_msgs::msg::RobotState::S
     StatePubSub::callbackRobotState(msg);
 }
 
-void JumpController::callbackEnablePropellers(const std_srvs::srv::SetBool::Request::SharedPtr  request,
-                                              std_srvs::srv::SetBool::Response::SharedPtr response)
+void JumpController::callbackLandingPosition(const std_msgs::msg::Float32MultiArray::SharedPtr msg)
+{
+    for (std::size_t i = 0; i < jump_params_.arm_landing.size(); ++i)
+    {
+        jump_params_.arm_landing[i] = msg->data[i];
+    }
+}
+
+void JumpController::callbackEnablePropellers(const std_srvs::srv::SetBool::Request::SharedPtr request,
+                                              std_srvs::srv::SetBool::Response::SharedPtr      response)
 {
     is_propeller_enabled_ = request->data;
     response->success     = true;
@@ -137,13 +157,14 @@ void JumpController::callbackEnablePropellers(const std_srvs::srv::SetBool::Requ
     }
 }
 
-void JumpController::callbackEnableJump(const std_srvs::srv::SetBool::Request::SharedPtr  request,
-                                        std_srvs::srv::SetBool::Response::SharedPtr response)
+void JumpController::callbackEnableJump(const std_srvs::srv::SetBool::Request::SharedPtr request,
+                                        std_srvs::srv::SetBool::Response::SharedPtr      response)
 {
-    is_jumping_       = request->data;
+    is_jumping_         = request->data;
     response->success = true;
     if (is_jumping_)
     {
+        time_takeoff_last_call_ = std::chrono::steady_clock::now();
         response->message = "jump enabled";
     }
     else
@@ -174,7 +195,8 @@ void JumpController::computeControls()
                 controller_data_.cmd_arm_vel[i] = 0;
 
                 const std::lock_guard<std::recursive_mutex> lock{state_data_.mutex};
-                if (abs(jump_params_.arm_take_off[i] - state_data_.state[7 + i]) > 0.05)
+                // idea: direction_of_the_torque*(pos_takeoff-pos) > 0 
+                if (sign(jump_params_.torque_commands[i])*(jump_params_.arm_takeoff[i] - state_data_.state[7 + i]) > 0)
                 {
                     is_time_to_change = false;
 
@@ -189,12 +211,12 @@ void JumpController::computeControls()
                     controller_data_.cmd_arm_kd[i]     = jump_params_.arm_kd[i];
                 }
             }
-            if (is_time_to_change)
+            if (is_time_to_change ||  std::chrono::steady_clock::now() - time_takeoff_last_call_ > jump_params_.time_takeoff)
             {
                 is_jumping_ = false;
             }
         }
-        else  // during parking phase
+        if(!is_jumping_)  // during parking phase
         {
             RCLCPP_INFO_STREAM_ONCE(get_logger(), "Inside Parking phase");
             for (std::size_t i = 0; i < jump_params_.torque_commands.size(); ++i)
@@ -278,16 +300,6 @@ bool JumpController::transStartCallback(std::string &message)
             message = "Cannot start controller. Arm has not transitioned to 'running' state.";
             return false;
         }
-    }
-
-    if (is_jumping_)
-    {
-        // This can happen if the solver of the goto command has failed to converge. In this case, we reset the control
-        // manager
-        hidro_utils::TransitionResponse response;
-        state_machine_->callTransition("disable", response);
-        message = "Cannot start jump controller. Intern boolean set on take-off or landing";
-        return false;
     }
 
     if (jump_params_.write_px4_commands)

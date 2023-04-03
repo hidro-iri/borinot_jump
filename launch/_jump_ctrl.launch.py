@@ -14,6 +14,9 @@ def generate_launch_description():
 
     topic_platform_state = PythonExpression(["'/'+'", LaunchConfiguration('robot_name'), "'+'/platform/state'"])
     topic_arm_state = PythonExpression(["'/'+'", LaunchConfiguration('robot_name'), "'+'/arm/state'"])
+    service_enable_propellers = PythonExpression(["'/'+'", LaunchConfiguration('robot_name'), "'+'/enable_propellers'"])
+    service_enable_jump = PythonExpression(["'/'+'", LaunchConfiguration('robot_name'), "'+'/enable_jump'"])
+
 
     remappings = [
         ("platform_position", "/fmu/vehicle_local_position/out"),
@@ -30,7 +33,9 @@ def generate_launch_description():
         ("odri_state", "/odri/robot_state"),
         ("arm_command", "/odri/robot_command"),
         ("arm_state_machine_status", "/odri/state_machine_status"),
-        ("arm_service_state_transition", "/odri/robot_interface/state_transition")
+        ("arm_service_state_transition", "/odri/robot_interface/state_transition"),
+        ("enable_propellers",service_enable_propellers),
+        ("enable_jump",service_enable_jump)
     ]
 
     jump_ctrl = Node(package="borinot_jump",

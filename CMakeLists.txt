@@ -28,6 +28,7 @@ find_package(px4_ros_com REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # ---- LIBRARY: BORINOT_JUMP_TOOLS ----
 list(APPEND BORINOT_JUMP_TOOLS_SRC src/jump_controller.cpp)
@@ -46,6 +47,7 @@ ament_target_dependencies(${PROJECT_NAME}_tools px4_msgs)
 ament_target_dependencies(${PROJECT_NAME}_tools px4_ros_com)
 ament_target_dependencies(${PROJECT_NAME}_tools eagle_ros2_interfaces)
 ament_target_dependencies(${PROJECT_NAME}_tools std_srvs)
+ament_target_dependencies(${PROJECT_NAME}_tools std_msgs)
 
 target_link_libraries(${PROJECT_NAME}_tools eagle_ros2_tf::eagle_ros2_tf_tools)
 target_link_libraries(${PROJECT_NAME}_tools eagle_ros2_control::eagle_ros2_control_tools)
@@ -74,6 +76,7 @@ ament_export_dependencies(eagle_ros2_interfaces)
 ament_export_dependencies(eagle_ros2_tf)
 ament_export_dependencies(eagle_ros2_control)
 ament_export_dependencies(std_srvs)
+ament_export_dependencies(std_msgs)
 
 # Install folders
 install(DIRECTORY include/${PROJECT_NAME} DESTINATION include)
